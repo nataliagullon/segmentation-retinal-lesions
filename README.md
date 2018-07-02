@@ -5,4 +5,6 @@ In partial fulfilment of the requirements for the degree in Telecommunications T
 
 The code is implemented in Python using Keras framework running on top of TensorFlow.
 
-The Indian Diabetic Retinopathy Image Dataset (IDRiD) from the Diabetic Retinopathy: Segmentation and Grading Challenge is used for this project. Retinal lesions (Microaneurysms, Haemorrhages, Soft Exudates and Hard Exudates) are segmented in funduscopy images.
+Retinal lesions (Microaneurysms, Haemorrhages, Soft Exudates and Hard Exudates) are segmented in funduscopy images with U-Net and adversarial training.
+
+The Indian Diabetic Retinopathy Image Dataset (IDRiD) from the Diabetic Retinopathy: Segmentation and Grading Challenge is used for this project.
