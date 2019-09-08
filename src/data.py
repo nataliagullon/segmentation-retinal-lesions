@@ -1,37 +1,20 @@
 from os import listdir
 from os.path import isfile, join
-
 import numpy as np
-
 from skimage.io import imread
 from skimage.io import imsave
 from skimage.util.shape import view_as_windows
 from skimage.morphology import opening, closing, dilation
-
-import sys
-import time
-from random import shuffle, randint
+from random import shuffle
 import random
 import os
-
-files_path = '/imatge/ngullon/work/retina_data/training_set/apparent_retinopathy/'
-path_se_class = '/imatge/ngullon/work/retina_data/SE/'
-
-data_path = '/imatge/ngullon/work/retina_data/'
-labels = ['EX/', 'HE/', 'MA/', 'SE/']
-
-color_code_labels = [
-    [0, 0, 0],      # 0 - Black     - Background
-    [255, 0, 0],    # 1 - Red       - EX class
-    [0, 255, 0],    # 2 - Green     - HE class
-    [0, 0, 255],    # 3 - Blue      - MA class
-    [255, 255, 0],  # 4 - Yellow    - SE class
-]
-
-random.seed(8)
+from utils.params import parse_arguments, default_params
 
 
-def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, patch_size_test, channels):
+
+path_to_data = '../'
+
+def create_datasets(**params):
     """
     It creates train, validation and test datasets with the given ratios
     It creates masks for all datasets
@@ -45,10 +28,19 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
     :param patch_size_test: patch size of test images
     :param channels: number of channels of images
     """
-    train_path = data_path + 'train/'
-    test_path = data_path + 'test/'
-    val_path = data_path + 'val/'
-    path_mask = data_path + 'masks/'
+
+    params = dict(
+        default_params,
+        **params
+    )
+
+    verbose = params['verbose']
+
+    data_path = join(path_to_data, params['data_path'])
+    train_path = join(data_path, 'train/')
+    test_path = join(data_path, 'test/')
+    val_path = join(data_path, 'val/')
+    path_mask = join(data_path, 'masks/')
     if not os.path.exists(train_path):
         os.makedirs(train_path)
     if not os.path.exists(test_path):
@@ -56,20 +48,24 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
     if not os.path.exists(val_path):
         os.makedirs(val_path)
 
+    rand_seed = params['seed']
+    random.seed(rand_seed)
 
-    random.seed(8)
+    if verbose:
+        print("Preprocessing and preparing data...")
 
-    print "Creating data patches..."
+    files_path = join(path_to_data, params['images_path'])
 
     files = [f for f in listdir(files_path) if isfile(join(files_path, f))]
-    print "Files used: {}".format(len(files))
+    if verbose:
+        print("Files used: {}".format(len(files)))
 
     # Very few samples have SE class, so we make sure images test and validation sets have images with SE
-    path_se_class = data_path + 'SE/'
+    path_se_class = join(path_to_data, join(params['gt_path'], 'SE/'))
     files_se = [f for f in listdir(path_se_class) if isfile(join(path_se_class, f))]
 
-    n_test = int(np.round(len(files) * ratio_test))
-    n_val = int(np.round(len(files) * ratio_val))
+    n_test = int(np.round(len(files) * params['ratio_test']))
+    n_val = int(np.round(len(files) * params['ratio_val']))
 
     files_test = []
     files_val = []
@@ -77,7 +73,7 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
 
     shuffle(files_se)
     shuffle(files)
-    for i in xrange(len(files_se)):
+    for i in range(len(files_se)):
         name_file = files_se[i][:-7] + '.jpg'
         if i < n_test:
             files_test.append(name_file)
@@ -89,9 +85,17 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
         if file not in files_train and file not in files_test and file not in files_val:
             files_train.append(file)
 
-    print "Files in train: {}".format(len(files_train))
-    print "Files in validation: {}".format(len(files_val))
-    print "Files in test: {}".format(len(files_test))
+    if verbose:
+        print("Files in train: {}".format(len(files_train)))
+        print("Files in validation: {}".format(len(files_val)))
+        print("Files in test: {}".format(len(files_test)))
+
+    patch_size = params['patch_size']
+    patch_size_test =  params['patch_size_test']
+    channels = params['channels']
+    threshold_mask = params['thres_mask']
+    labels = params['labels']
+    gt_path = join(path_to_data, params['gt_path'])
 
     img_aux = imread(files_path + files[0])
     img_size = img_aux.shape
@@ -103,36 +107,38 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
     if img_size[1] % patch_size != 0:
         num = int(img_size[1] / patch_size) + 1
         pad_width = int(patch_size * num - img_size[1])
-
+    """
     count = 0
     for file in files_train:
         img_name = file[:-4]
         image = imread(files_path + file)
 
         mask_name = img_name + '_mask'
-        create_data_mask(image, mask_name, path_mask)
-        mask = imread(path_mask + mask_name + '.png')
+        create_data_mask(image, mask_name, path_mask, threshold=threshold_mask)
+        mask = imread(path_mask + mask_name + '.png') // 255
         masked_img = mask * image
         image_pad = np.pad(masked_img, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant')
         path_patches_train = train_path + 'images/'
-        create_patches(image_pad, img_name, patch_size, patch_size / 2, channels, path_patches_train, '.jpg')
+        create_patches(image_pad, img_name, patch_size, patch_size // 2, channels, path_patches_train, '.png')
 
         image_all_labels = np.zeros((img_size[0] + pad_height, img_size[1] + pad_width, channels), dtype=np.uint8)
-        for lab in xrange(len(labels)):
+        for lab in range(len(labels)):
             try:
-                image = imread(data_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
+                image = imread(gt_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
                 image_pad = np.pad(image, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant')
                 label = np.asarray(image_pad).astype(np.uint8)
             except IOError:
                 label = np.zeros((img_size[0] + pad_height, img_size[1] + pad_width, channels), dtype=np.uint8)
             image_all_labels[(label[:, :, 0] == 255)] = lab+1
         path_patches_train_all_labels = train_path + 'labels/'
-        create_patches(image_all_labels, img_name + '_label', patch_size, patch_size/2, channels, path_patches_train_all_labels, '.png')
+        create_patches(image_all_labels, img_name + '_label', patch_size, patch_size // 2, channels, path_patches_train_all_labels, '.png')
 
-        count +=1
-        print "Done: {0}/{1} of train dataset".format(count, len(files_train))
+        if verbose:
+            count += 1
+            print("Done: {0}/{1} of train dataset".format(count, len(files_train)))
 
-    print "Patches created for train dataset"
+    if verbose:
+        print("Patches created for train dataset")
 
     count = 0
     for file in files_val:
@@ -140,30 +146,32 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
         image = imread(files_path + file)
 
         mask_name = img_name + '_mask'
-        create_data_mask(image, mask_name, path_mask)
-        mask = imread(path_mask + mask_name + '.png')
+        create_data_mask(image, mask_name, path_mask, threshold=threshold_mask)
+        mask = imread(path_mask + mask_name + '.png') // 255
         masked_img = mask * image
         image_pad = np.pad(masked_img, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant')
         path_patches_val = val_path + 'images/'
-        create_patches(image_pad, img_name, patch_size, patch_size / 2, channels, path_patches_val, '.jpg')
+        create_patches(image_pad, img_name, patch_size, patch_size // 2, channels, path_patches_val, '.png')
 
         image_all_labels = np.zeros((img_size[0] + pad_height, img_size[1] + pad_width, channels), dtype=np.uint8)
-        for lab in xrange(len(labels)):
+        for lab in range(len(labels)):
             try:
-                image = imread(data_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
+                image = imread(gt_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
                 image_pad = np.pad(image, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant')
                 label = np.asarray(image_pad).astype(np.uint8)
             except IOError:
                 label = np.zeros((img_size[0] + pad_height, img_size[1] + pad_width, channels), dtype=np.uint8)
             image_all_labels[(label[:, :, 0] == 255)] = lab+1
         path_patches_val_all_labels = val_path + 'labels/'
-        create_patches(image_all_labels, img_name + '_label', patch_size, patch_size/2, channels, path_patches_val_all_labels, '.png')
+        create_patches(image_all_labels, img_name + '_label', patch_size, patch_size // 2, channels, path_patches_val_all_labels, '.png')
 
-        count += 1
-        print "Done: {0}/{1} of validation dataset".format(count, len(files_val))
+        if verbose:
+            count += 1
+            print("Done: {0}/{1} of validation dataset".format(count, len(files_val)))
 
-    print "Patches created for validation dataset"
-
+    if verbose:
+        print("Patches created for validation dataset")
+    """
     pad_height = 0
     pad_width = 0
     if img_size[0] % patch_size != 0:
@@ -179,34 +187,40 @@ def create_datasets(files_path, data_path, ratio_test, ratio_val, patch_size, pa
         image = imread(files_path + file)
 
         mask_name = img_name + '_mask'
-        create_data_mask(image, mask_name, path_mask)
-        mask = imread(path_mask + mask_name + '.png')
+        create_data_mask(image, mask_name, path_mask, threshold=threshold_mask)
+        mask = imread(path_mask + mask_name + '.png') // 255
         masked_img = mask * image
         image_pad = np.pad(masked_img, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant')
         path_test_images = test_path + 'full_images/'
         if not os.path.exists(path_test_images):
             os.makedirs(path_test_images)
-        imsave(path_test_images + img_name + '.jpg', image_pad)
+        imsave(path_test_images + img_name + '.jpg', masked_img)
         path_patches_test = test_path + 'images/'
-        create_patches(image_pad, img_name, patch_size_test, patch_size_test, channels, path_patches_test, '.jpg')
+        create_patches(image_pad, img_name, patch_size_test, patch_size_test, channels, path_patches_test, '.png')
 
         image_all_labels = np.zeros((img_size[0], img_size[1], channels), dtype=np.uint8)
-        for lab in xrange(len(labels)):
+        for lab in range(len(labels)):
             try:
-                image = imread(data_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
+                image = imread(gt_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
                 label = np.asarray(image).astype(np.uint8)
             except IOError:
                 label = np.zeros((img_size[0], img_size[1], channels), dtype=np.uint8)
             image_all_labels[(label[:, :, 0] == 255)] = lab + 1
-            path_test_all_labels = test_path + 'labels/'
-        if not os.path.exists(path_test_all_labels):
-            os.makedirs(path_test_all_labels)
-        imsave(path_test_all_labels + img_name + '_label.png', image_all_labels)
+        path_test_all_full_labels = test_path + 'full_labels/'
+        if not os.path.exists(path_test_all_full_labels):
+            os.makedirs(path_test_all_full_labels)
+        imsave(path_test_all_full_labels + img_name + '_label.png', image_all_labels)
+        image_all_labels_pad = np.pad(image_all_labels, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant')
+        path_patches_test_all_labels = test_path + 'labels/'
+        create_patches(image_all_labels_pad, img_name + '_label', patch_size_test, patch_size_test, channels,
+                       path_patches_test_all_labels, '.png')
 
-        count += 1
-        print "Done: {0}/{1} of test dataset".format(count, len(files_test))
+        if verbose:
+            count += 1
+            print("Done: {0}/{1} of test dataset".format(count, len(files_test)))
 
-    print "Patches created for test dataset"
+    if verbose:
+        print("Patches created for test dataset")
 
 
 def image_shape(filename):
@@ -221,7 +235,7 @@ def image_shape(filename):
     return img_shape
 
 
-def create_data_mask(image, img_name, out_path):
+def create_data_mask(image, img_name, out_path, threshold):
     """
     It creates a mask of the image array passed as a parameter and save the mask created in the out_path with the img_name
     :param image: image array
@@ -231,7 +245,7 @@ def create_data_mask(image, img_name, out_path):
     if not os.path.exists(out_path):
         os.makedirs(out_path)
 
-    mask_index = (image < 13)
+    mask_index = (image < threshold)
 
     mask = (~mask_index).astype(np.uint8) * 255
     str_element_op = np.ones((11, 11, 3))
@@ -282,7 +296,7 @@ def compute_statistics_file(label_img):
     return lab_score
 
 
-def create_labels_color(files_path, data_path, all_labels_path):
+def create_labels_color(**params):
     """
     It creates an image with all the labels in the same image. Each label is printed with a different color following the color_code_labels
     :param files_path: path where images are located
@@ -291,6 +305,18 @@ def create_labels_color(files_path, data_path, all_labels_path):
     :param all_labels_path: path where the created images are saved
     """
 
+    params = dict(
+        default_params,
+        **params
+    )
+
+    verbose = params['verbose']
+
+    files_path = join(path_to_data, params['images_path'])
+    all_labels_path = join(path_to_data, join(params['gt_path'], 'all_labels/'))
+    gt_path = join(path_to_data, params['gt_path'])
+    labels = params['labels']
+
     if not os.path.exists(all_labels_path):
         os.makedirs(all_labels_path)
 
@@ -298,17 +324,25 @@ def create_labels_color(files_path, data_path, all_labels_path):
     img_aux = imread(files_path + files[0])
     img_size = img_aux.shape
 
+    color_code_labels = params['color_code_labels']
+
+    if verbose:
+        print("Creating ground truth with all the classes in the same label...")
+
     for file in files:
         img_name = file[:-4]
-        image_all_labels = np.zeros((img_size[0], img_size[1], 1), dtype=np.uint8)
-        for lab in xrange(len(labels)):
+        image_all_labels = np.zeros((img_size[0], img_size[1], params['channels']), dtype=np.uint8)
+        for lab in range(len(labels)):
             try:
-                image = imread(data_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
+                image = imread(gt_path + labels[lab] + img_name + '_' + labels[lab][:-1] + '.tif')
                 label = np.asarray(image).astype(np.uint8)
             except IOError:
                 label = np.zeros((img_size[0], img_size[1], img_size[2]), dtype=np.uint8)
             image_all_labels[(label[:,:,0]==255)] = color_code_labels[lab+1]
-        imsave(all_labels_path + img_name + '_label.png', image_all_labels)
+        imsave(all_labels_path + img_name + '_all_labels.png', image_all_labels)
+
+    if verbose:
+        print("Done!")
 
 
 def compute_mean_and_std(files_path, out_path):
@@ -333,11 +367,18 @@ def compute_mean_and_std(files_path, out_path):
     mean_image = np.mean(all_images, axis=0)
     std_image = np.std(all_images, axis=0)
 
-    print "Mean and std images calculated"
+    print("Mean and std images calculated")
 
     imsave(out_path + 'mean_image.tif', mean_image)
     imsave(out_path + 'std_image.tif', std_image)
 
 
+def compute_num_patches(file, patch_size):
+    img = imread(file)
+    num_patches = np.ceil(img.shape[0] / patch_size) * np.ceil(img.shape[1] / patch_size)
+    return num_patches
+
+
 if __name__ == '__main__':
-    create_datasets()
+    create_datasets(**vars(parse_arguments()))
+    #create_labels_color(**vars(parse_arguments()))
