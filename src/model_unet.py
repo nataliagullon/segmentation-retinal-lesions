@@ -1,18 +1,9 @@
-import numpy as np
-import os
-from keras.utils import plot_model
-
-from keras import backend as K
-from keras import objectives
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dense, GlobalAveragePooling2D, Dropout
-from keras.layers import Input, Lambda
-from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.core import Activation, Flatten
+from keras.layers import Conv2D, MaxPooling2D, UpSampling2D
+from keras.layers import Input
+from keras.layers.core import Activation
 from keras.layers.merge import Concatenate
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
-from keras.optimizers import Adam
-from keras.utils.vis_utils import plot_model as plot
 
 
 def get_unet(patch_height, patch_width, channels, n_classes):
@@ -106,7 +97,3 @@ def get_unet(patch_height, patch_width, channels, n_classes):
     unet = Model(inputs=inputs, outputs=outputs)
 
     return unet
-
-
-if __name__ == '__main__':
-    unet = get_unet(400, 400, 3, 5)

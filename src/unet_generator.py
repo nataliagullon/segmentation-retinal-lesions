@@ -1,55 +1,54 @@
 from __future__ import print_function
-
 from os import listdir
 from os.path import isfile, join
-
 import numpy as np
-
 from skimage.io import imread
 from skimage.transform import rotate
 from keras.utils import to_categorical
-
-import sys
 from random import shuffle, randint
-import random
-import os
-
 from data import image_shape, compute_statistics_file
+import sys
 
 
 class UNetGeneratorClass(object):
     """
-    It creates a generator to train the model
+    It creates a generator to train/validate the model
     """
-    def __init__(self, n_class=5, batch_size=32, apply_augmentation=True, thres_score=None,
-                 path = 'data'):
+    def __init__(self, data_path, n_class=5, batch_size=32, channels=3, apply_augmentation=True, thres_score=None,
+                 train = True):
         """
         Initialization of the generator
         :param n_class: number of classes to predict
         :param batch_size: size of the batch for training the model
         :param apply_augmentation: if True, data augmentation is applied
-        :param thres_score: value between 0 and 1. Minimum ratio of lesion that images of the geenrator will have
-        :param path: path where the images and labels are located
+        :param thres_score: value between 0 and 1. Minimum ratio of lesion that images of the generator will have
+        :param train: boolean value. If true, the generator takes the train images; if false, the generator takes
+        the validation images
         """
 
-        self.files = [f for f in listdir(path + 'images/') if isfile(join(path + 'images/', f))]
+        if train:
+            path = data_path + 'train/'
+        else:
+            path = data_path + 'val/'
+
+        self.labels_path = join(path, 'labels/')
+        self.image_path = join(path, 'images/')
+        self.path = path
+
+        self.files = [f for f in listdir(self.image_path) if isfile(join(self.image_path, f)) and f.endswith('.png') ]
 
         if thres_score is not None:
             files_aux = []
             for file_name in self.files:
                 a, b, c = file_name.split("_")
-                label_img = imread(path + 'labels/' + a + '_' + b + '_label_' + c[:-4] + '.tif')
+                label_img = imread(self.labels_path + a + '_' + b + '_label_' + c)
                 score = compute_statistics_file(label_img)
                 if score > thres_score:
                     files_aux.append(file_name)
             self.files = files_aux
 
-        self.img_shape = image_shape(path + 'images/' + self.files[0])
-        self.channels = 3
-
-        self.labels_path = os.path.join(path, 'labels/')
-        self.image_path = os.path.join(path, 'images/')
-        self.path = path
+        self.img_shape = image_shape(self.image_path + self.files[0])
+        self.channels = channels
 
         self.batch_size = batch_size
         self.n_class = n_class
@@ -98,7 +97,7 @@ class UNetGeneratorClass(object):
 
                     a, b, c = file_name.split("_")
 
-                    label_name = a + '_' + b + '_label_' + c[:-4] + '.tif'
+                    label_name = a + '_' + b + '_label_' + c
                     label_img = imread(self.labels_path + label_name)
                     label_array = np.asarray(label_img[:, :, 0]).astype(np.uint8)
                     assert (np.amin(label_array) >= 0 and np.amax(label_array) <= 5)
@@ -115,10 +114,3 @@ class UNetGeneratorClass(object):
                     n += 1
 
                 yield (images_batch, labels_batch)
-
-
-if __name__ == '__main__':
-    data_path = '/imatge/ngullon/work/retina_data/'
-    gen = UNetGeneratorClass(n_class=5, batch_size=32, apply_augmentation=False, thres_score=0.5,
-                 path = data_path + 'train/')
-    print(len(gen.files))

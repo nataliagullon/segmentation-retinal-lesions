@@ -1,18 +1,5 @@
-from utils import model
-
-from keras.callbacks import ModelCheckpoint
-from keras.callbacks import TensorBoard, ReduceLROnPlateau
-from keras.optimizers import Adam, RMSprop, SGD
 import tensorflow as tf
 from keras import backend as K
-
-import numpy as np
-import sys
-import os
-from unet_generator import UNetGeneratorClass
-
-data_path = '/imatge/ngullon/work/retina_data/'
-labels = ['EX/', 'HE/', 'MA/', 'SE/']
 
 
 def generalised_dice_coef(y_true, y_pred, type_weight='Square'):
@@ -90,57 +77,3 @@ def dice_coef_multilabel(y_true, y_pred, numLabels=5):
     for index in range(numLabels):
         dice += dice_coef(y_true[:,:,:,index], y_pred[:,:,:,index])
     return 1. - dice/5.
-
-
-def train_unet_generator(data_path, out_path):
-    """
-    It trains the U-Net first using patches with a percentage (thres_score) of lesion and after using patches with lesion.
-    It saves the best weights using model checkpointer
-    :param data_path: path where images and labels are located
-    :param out_path: path where the evolution of the performance (TensorBorad) is saved
-    """
-    print "Welcome to U-Net training"
-    if not os.path.exists(out_path):
-        os.makedirs(out_path)
-
-    print "Getting model..."
-    unet = model.get_unet(400, 400, 3, 5)
-
-    metrics = [gen_dice_multilabel]
-
-    unet.compile(optimizer=Adam(lr=1e-4), loss=gen_dice_multilabel, metrics=metrics)
-
-    print "Getting generators..."
-    train_scored_generator = UNetGeneratorClass(n_class=5, batch_size=8, apply_augmentation=False, thres_score=0.3,
-                 path = data_path + '400_train/')
-
-    train_generator = UNetGeneratorClass(n_class=5, batch_size=8, apply_augmentation=True, thres_score=0,
-                 path = data_path + '400_train/')
-
-    val_generator = UNetGeneratorClass(n_class=5, batch_size=8, apply_augmentation=False, thres_score=None,
-                 path = data_path + '400_val/')
-
-    print len(train_scored_generator.files)
-
-    print "Training model..."
-    model_checkpoint = ModelCheckpoint('best_weights_44.h5', verbose=1, monitor='val_loss', save_best_only=True)
-    tensorboard = TensorBoard(log_dir=out_path, histogram_freq=0, write_graph=True, write_images=False)
-
-    unet.fit_generator(train_scored_generator.generate(),
-                       steps_per_epoch=(len(train_scored_generator.files) // train_scored_generator.batch_size + 1),
-                       epochs=15, verbose=1, callbacks=[tensorboard])
-
-    unet.fit_generator(train_generator.generate(),
-                       steps_per_epoch=(len(train_generator.files) // train_generator.batch_size + 1),
-                       epochs=50, verbose=1, callbacks=[tensorboard, model_checkpoint],
-                       validation_data=val_generator.generate(),
-                       validation_steps=(len(val_generator.files) // val_generator.batch_size + 1))
-
-    unet.save_weights('last_weights_44.h5', overwrite=True)
-    print "Training finished"
-
-
-if __name__ == '__main__':
-    data_path = '/imatge/ngullon/work/retina_data/'
-    out_path = data_path + 'model_performance/performance_44/'
-    train_unet_generator(data_path, out_path)

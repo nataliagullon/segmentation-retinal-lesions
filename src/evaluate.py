@@ -1,15 +1,14 @@
 from os import listdir
 from os.path import isfile, join
 import os
-import sys
 
 import numpy as np
 from skimage.io import imread
 from skimage.io import imsave
 from sklearn.metrics import auc, precision_recall_curve
+from utils.params import parse_arguments_w, default_params
 
-labels = ['EX/', 'HE/', 'MA/', 'SE/']
-
+path_to_data = '../'
 
 def difference_map(ground_truth, prediction):
     """
@@ -45,27 +44,43 @@ def AUC_PR(ground_truth, pred):
     return auc_pr
 
 
-def compute_dice_coef_gen(num, path_test, path_maps):
+def compute_dice_coef_gen(num, params):
     """
     It computes the dice score and the difference map for one class (the indicated in num)
     :param num: number of the class to compute the difference map and dice score (1 - EX, 2 - HE, 3 - MA, 4 - SE)
-    :param path_test: path where test images are located. Inside this directory, there should be a folder called 'labels' where ground truth are located
+    :param test_path: path where test images are located. Inside this directory, there should be a folder called 'labels' where ground truth are located
     :param path_maps: path where difference maps are saved
     """
+
+    data_path = join(path_to_data, params['data_path'])
+    test_path = join(data_path, 'test/')
+
+    name_weights = params['weights']
+    if name_weights.endswith('.h5'):
+        name_weights = name_weights[:-3]
+
+    if params['adv_training'] == 'True' or params['adv_training'] == 'T':
+        path_pred = join(path_to_data, params['weights_gan'] + 'predictions_' + name_weights + '/')
+    else:
+        path_pred = join(path_to_data, params['weights_unet'] + 'predictions_' + name_weights + '/')
+
+    path_maps = join(path_pred, 'maps/')
     if not os.path.exists(path_maps):
         os.makedirs(path_maps)
-    path_pred_test = path_test + 'predictions/pred_images/'
+
+    labels = params['labels']
 
     lab_index = num
     lab_name = labels[num-1][:-1]
     dice_total = 0.0
-    gt_test = [f for f in listdir(path_test + 'labels/') if isfile(join(path_test + 'labels/', f))]
-    gt_aux = imread(path_test + 'labels/' + gt_test[0])
+    gt_test = [f for f in listdir(test_path + 'full_labels/') if isfile(join(test_path + 'full_labels/', f))]
+    gt_aux = imread(test_path + 'full_labels/' + gt_test[0])
+
     for file in gt_test:
-        pred_file = file[:-6] + '_pred.png'
-        gt = imread(path_test + 'labels/' + file)
+        pred_file = file[:-10] + '_pred.png'
+        gt = imread(test_path + 'full_labels/' + file)
         gt = np.asarray(gt).astype(np.uint8)
-        pred = imread(path_pred_test + pred_file)
+        pred = imread(path_pred + pred_file)
         pred = np.asarray(pred).astype(np.uint8)
         one_label_gt = np.zeros((gt_aux.shape[0], gt_aux.shape[1]))
         one_label_pred = np.zeros((gt_aux.shape[0], gt_aux.shape[1]))
@@ -77,13 +92,36 @@ def compute_dice_coef_gen(num, path_test, path_maps):
         imsave(path_maps + file[:-4] + '_' + lab_name + '_map.png', map)
         dice_total = dice_total + dice_coef
     dice_total = dice_total / len(gt_test)
-    print "Dice coefficient for class {0}: {1}".format(lab_name, dice_total)
+
+    file = path_pred + 'evalutation_' + params['weights'] + '.txt'
+    f = open(file, "a+")
+    f.write('\nDice coefficient \n')
+    f.write("Class {0}: {1} \n".format(lab_name, dice_total))
+    f.close()
+
+
+def evaluate(**params):
+    """
+    It evaluates the model (computes dice coefficient and creates difference maps) for all the classes separately.
+    """
+    params = dict(
+        default_params,
+        **params
+    )
+
+    verbose = params['verbose']
+
+    if verbose:
+        print("Evaluating predictions...")
+
+    labels = params['labels']
+
+    for num_label in range(len(labels)):
+        compute_dice_coef_gen(num_label+1, params)
+
+    if verbose:
+        print('Done!')
 
 
 if __name__ == '__main__':
-    path_test = '/imatge/ngullon/work/retina_data/400_test/'
-    path_maps = path_test + 'predictions/maps/'
-    compute_dice_coef_gen(1, path_test, path_maps)
-    compute_dice_coef_gen(2, path_test, path_maps)
-    compute_dice_coef_gen(3, path_test, path_maps)
-    compute_dice_coef_gen(4, path_test, path_maps)
+    evaluate(**vars(parse_arguments_w()))
