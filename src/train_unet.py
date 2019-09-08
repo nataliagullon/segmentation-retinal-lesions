@@ -6,7 +6,7 @@ from keras.callbacks import TensorBoard
 from keras.optimizers import Adam
 from unet_generator import UNetGeneratorClass
 from utils.losses import *
-from utils.params import parse_arguments_w, default_params
+from utils.params import parse_arguments_unet, default_params
 import sys
 
 
@@ -29,7 +29,7 @@ def train_unet_generator(**params):
     if verbose:
         print("Welcome to U-Net training")
 
-    out_path = join(path_to_data, params['tensorboard_unet'])
+    out_path = join(path_to_data, params['weights_path'] + 'tensorboard/')
     if not os.path.exists(out_path):
         os.makedirs(out_path)
     else:
@@ -69,7 +69,7 @@ def train_unet_generator(**params):
         print("Files in scored generator for training:", len(train_scored_generator.files))
         print("Training model...")
 
-    weights_path = join(path_to_data, params['weights_unet'])
+    weights_path = join(path_to_data, params['weights_path'])
     best_weights = join(weights_path, params['weights'] + '.h5')
 
     model_checkpoint = ModelCheckpoint(best_weights, verbose=1, monitor='val_loss', save_best_only=True)
@@ -93,4 +93,4 @@ def train_unet_generator(**params):
 
 
 if __name__ == '__main__':
-    train_unet_generator(**vars(parse_arguments_w()))
+    train_unet_generator(**vars(parse_arguments_unet()))

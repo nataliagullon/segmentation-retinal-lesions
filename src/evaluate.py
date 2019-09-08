@@ -6,7 +6,7 @@ import numpy as np
 from skimage.io import imread
 from skimage.io import imsave
 from sklearn.metrics import auc, precision_recall_curve
-from utils.params import parse_arguments_w, default_params
+from utils.params import parse_arguments_pred, default_params
 
 path_to_data = '../'
 
@@ -59,10 +59,7 @@ def compute_dice_coef_gen(num, params):
     if name_weights.endswith('.h5'):
         name_weights = name_weights[:-3]
 
-    if params['adv_training'] == 'True' or params['adv_training'] == 'T':
-        path_pred = join(path_to_data, params['weights_gan'] + 'predictions_' + name_weights + '/')
-    else:
-        path_pred = join(path_to_data, params['weights_unet'] + 'predictions_' + name_weights + '/')
+    path_pred = join(path_to_data, params['weights_path'] + 'predictions_' + name_weights + '/')
 
     path_maps = join(path_pred, 'maps/')
     if not os.path.exists(path_maps):
@@ -124,4 +121,4 @@ def evaluate(**params):
 
 
 if __name__ == '__main__':
-    evaluate(**vars(parse_arguments_w()))
+    evaluate(**vars(parse_arguments_pred()))

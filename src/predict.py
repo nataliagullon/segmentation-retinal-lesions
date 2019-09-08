@@ -1,4 +1,4 @@
-from model_unet import *
+from model_unet import get_unet
 from keras.optimizers import Adam
 from skimage.io import imsave
 from skimage.io import imread
@@ -8,7 +8,7 @@ from os.path import isfile, join
 import numpy as np
 from utils.losses import dice_coef, gen_dice_multilabel
 from evaluate import AUC_PR
-from utils.params import parse_arguments_w, default_params
+from utils.params import parse_arguments_pred, default_params
 from data import compute_num_patches
 import sys
 
@@ -50,12 +50,8 @@ def predict(**params):
     if not name_weights.endswith('.h5'):
         name_weights = name_weights + '.h5'
 
-    if params['adv_training'] == 'True' or params['adv_training'] == 'T':
-        weights = join(path_to_data, join(params['weights_gan'], name_weights))
-        path_predicted = join(path_to_data, params['weights_gan'] + 'predictions_' + name_weights[:-3] + '/')
-    else:
-        weights = join(path_to_data, join(params['weights_unet'], name_weights))
-        path_predicted = join(path_to_data, params['weights_unet'] + 'predictions_' + name_weights[:-3] + '/')
+    weights = join(path_to_data, join(params['weights_path'], name_weights))
+    path_predicted = join(path_to_data, params['weights_path'] + 'predictions_' + name_weights[:-3] + '/')
 
     unet.load_weights(weights)
 
@@ -198,4 +194,4 @@ def predict(**params):
 
 
 if __name__ == '__main__':
-    predict(**vars(parse_arguments_w()))
+    predict(**vars(parse_arguments_pred()))
