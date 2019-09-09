@@ -1,38 +1,32 @@
-import numpy as np
-import os
-
 from keras import backend as K
 from keras import objectives
-from keras.layers import Conv2D, MaxPooling2D, UpSampling2D, Dense, GlobalAveragePooling2D, Dropout
-from keras.layers import Input, GaussianNoise
+from keras.layers import Conv2D, MaxPooling2D, Dense, GlobalAveragePooling2D
+from keras.layers import Input
 from keras.layers.advanced_activations import LeakyReLU
-from keras.layers.core import Activation, Flatten
 from keras.layers.merge import Concatenate
 from keras.layers.normalization import BatchNormalization
 from keras.models import Model
 from keras.optimizers import Adam
-from keras.utils.vis_utils import plot_model as plot
-from model import get_unet
-from keras.utils import to_categorical
-import tensorflow as tf
-from train import gen_dice_multilabel, dice_coef_multilabel, dice_coef, generalised_dice_coef
+from model_unet import get_unet
+from utils.losses import gen_dice_multilabel, dice_coef
 
 
-
-def compile_unet(patch_height, patch_width, channels, n_classes):
+def compile_unet(patch_height, patch_width, channels, n_classes, weights):
     """
     It creates, compiles and loads the best weights of the previously trained U-Net
     :param patch_height: height of the input images
     :param patch_width: width of the input images
     :param channels: channels of the input images
     :param n_classes: number of classes
-    :return: the U-Net
+    :param weights: weights of the pre-trained U-Net model
+    :return: the compiled U-Net
     """
     unet = get_unet(patch_height, patch_width, channels, n_classes)
 
     unet.compile(optimizer=Adam(lr=1e-4), loss=gen_dice_multilabel, metrics=['accuracy', dice_coef])
 
-    unet.load_weights('best_weights_37.h5')
+    # load the weights of the already trained U-Net model
+    unet.load_weights(weights)
 
     return unet
 
@@ -148,13 +142,3 @@ def get_gan(g, d, patch_height, patch_width, channels, n_classes):
     gan.compile(optimizer=Adam(lr=1e-4), loss=gan_loss, metrics=['accuracy', dice_coef])
 
     return gan
-
-
-if __name__ == '__main__':
-    unet = compile_unet(400, 400, 3, 5)
-    d = get_discriminator(400, 400, 3, 5)
-    gan = get_gan(unet, d, 400, 400, 3, 5)
-
-    print(unet.summary())
-    print(d.summary())
-    print(gan.summary())

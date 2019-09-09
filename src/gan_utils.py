@@ -2,21 +2,10 @@ from keras.preprocessing.image import Iterator
 import numpy as np
 from os import listdir
 from os.path import isfile, join
-
 from skimage.io import imread
 from keras.utils import to_categorical
-from random import shuffle, randint
-import time
-
+from random import shuffle
 from data import image_shape, compute_statistics_file
-
-train_path = '/imatge/ngullon/work/retina_data/train/'
-labels = ['EX/', 'HE/', 'MA/', 'SE/']
-data_path = '/imatge/ngullon/work/retina_data/'
-
-channels = 3
-n_classes = 5
-out_channels = 4
 
 
 class TrainBatchFetcher(Iterator):
@@ -34,10 +23,12 @@ class TrainBatchFetcher(Iterator):
         return self.images[indices, :, :, :], self.labels[indices, :, :, :]
 
 
-def get_data(path, thres_score = None):
+def get_data(path, channels, n_classes, verbose, thres_score = None):
     """
     It gets the image and labels (with more ratio of lesion than the given threshold 'thres_score') of the path passed as a parameter
     :param path: path where images and labels are located. Images should be inside a folder called 'images' and labels inside a folder called 'labels'
+    :param channels: number of channels
+    :param n_classes: number of classes
     :param thres_score: threshold of lesion/pixels
     :return: the images, the labels and the number of images returned
     """
@@ -46,7 +37,8 @@ def get_data(path, thres_score = None):
     if thres_score is not None:
         files_aux = []
         for file_name in files:
-            score = compute_statistics_file(path, file_name)
+            lab = imread(path + 'images/' + file_name)
+            score = compute_statistics_file(lab)
             if score > thres_score:
                 files_aux.append(file_name)
         files = files_aux
@@ -63,7 +55,7 @@ def get_data(path, thres_score = None):
 
         a, b, c = file_name.split("_")
 
-        label_name = a + '_' + b + '_label_' + c[:-4] + '.tif'
+        label_name = a + '_' + b + '_label_' + c[:-4] + '.png'
         label_img = imread(path + 'labels/' + label_name)
         label_array = np.asarray(label_img[:, :, 0]).astype(np.uint8)
         assert (np.amin(label_img) >= 0 and np.amax(label_img) <= 5)
@@ -71,9 +63,10 @@ def get_data(path, thres_score = None):
         images_train[n, :, :, :] = image_array
         labels_train[n, :, :, :] = to_categorical(label_array, n_classes).reshape(label_array.shape + (n_classes,))
 
-        n += 1
-        if (n+1)%100 == 0 or (n+1) == len(files):
-            print "Done: {0}/{1}".format((n+1), len(files))
+        if verbose:
+            n += 1
+            if (n+1)%100 == 0 or (n+1) == len(files):
+                print("Done: {0}/{1}".format((n+1), len(files)))
 
     return images_train, labels_train, len(files)
 
@@ -107,9 +100,3 @@ def imgs2gan(real_images, real_labels):
     lab_batch = np.ones((real_images.shape[0], 1))
 
     return img_batch, lab_batch
-
-
-if __name__ == '__main__':
-    path = '/imatge/ngullon/work/retina_data/400_train/'
-    img, lab = get_data(path)
-    a = TrainBatchFetcher(images=img, labels=lab, batch_size=5)
