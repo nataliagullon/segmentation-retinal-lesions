@@ -9,10 +9,10 @@ This file contains practical information on the project implementation and how t
 - [Project structure](#project-structure)
 - [Dataset](#dataset)
 - [Environment](#environment)
-- [Running the code](#running)
+- [Running the code](#running-the-code)
   - [Preprocess data](#preprocess-data)
   - [Training](#training)
-  - [Predict and Evaluate](#predict-evaluate)
+  - [Predict and Evaluate](#predict-and-evaluate)
   - [Tensorboard](#tensorboard)
 
 ## Project structure
@@ -92,7 +92,7 @@ optional arguments:
 
 The prepared data that will be used when training and evaluating the model will be generated inside the `data` directory.
 
-### Train
+### Training
 
 **U-Net**
 
