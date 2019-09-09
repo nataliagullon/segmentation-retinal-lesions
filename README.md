@@ -137,8 +137,8 @@ optional arguments:
                         False)
 
 required arguments:
-	-init_weights INIT_WEIGHTS
-												initial weights to be loaded on the unet
+  -init_weights INIT_WEIGHTS
+			initial weights to be loaded on the unet
   -weights WEIGHTS      name of the weights that will be saved
 ```
 
