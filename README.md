@@ -119,7 +119,7 @@ required arguments:
 
 **Adversarial training**
 
-To train the U-Net, you need to execute the `train_gan.py` from the `src` folder:
+To train the U-Net using adevrsarial training, you need to execute the `train_gan.py` from the `src` folder:
 
 ```
 cd src/
