@@ -107,7 +107,7 @@ def create_datasets(**params):
     if img_size[1] % patch_size != 0:
         num = int(img_size[1] / patch_size) + 1
         pad_width = int(patch_size * num - img_size[1])
-    """
+
     count = 0
     for file in files_train:
         img_name = file[:-4]
@@ -171,7 +171,7 @@ def create_datasets(**params):
 
     if verbose:
         print("Patches created for validation dataset")
-    """
+
     pad_height = 0
     pad_width = 0
     if img_size[0] % patch_size != 0:
@@ -381,4 +381,4 @@ def compute_num_patches(file, patch_size):
 
 if __name__ == '__main__':
     create_datasets(**vars(parse_arguments()))
-    #create_labels_color(**vars(parse_arguments()))
+    create_labels_color(**vars(parse_arguments()))
